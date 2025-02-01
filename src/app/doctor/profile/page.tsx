@@ -1,11 +1,12 @@
-import { DoctorDashboard } from "@/components/doctor/dashboard"
-import { DoctorLayout } from "@/components/doctor/layout"
+import type { Metadata } from "next"
+import {DoctorDashboard} from "@/components/doctor/dashboard"
 
-export default function DoctorProfilePage() {
-  return (
-    <DoctorLayout>
-      <DoctorDashboard />
-    </DoctorLayout>
-  )
+export const metadata: Metadata = {
+  title: "Dashboard",
+  description: "Patient health dashboard",
+}
+
+export default function DashboardPage() {
+  return <DoctorDashboard />
 }
 
