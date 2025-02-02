@@ -1,49 +1,62 @@
-import type { NextApiRequest, NextApiResponse } from "next"
+import { type NextRequest, NextResponse } from "next/server"
+import { connect } from "@/app/dbConfig/dbConfig"
+import Doctor from "@/models/doctorModel"
 import jwt from "jsonwebtoken"
-import { connectToDatabase } from "@/lib/db" // Assume this function connects to your database
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== "GET") {
-    return res.status(405).end()
-  }
-
-  const authHeader = req.headers.authorization
+export async function GET(req: NextRequest) {
+  const authHeader = req.headers.get("authorization")
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return res.status(401).json({ message: "Missing or invalid token" })
+    return NextResponse.json({ error: "Missing or invalid token" }, { status: 401 })
   }
 
   const token = authHeader.split(" ")[1]
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!)
-    const db = await connectToDatabase()
+    const decoded = jwt.verify(token, process.env.TOKEN_SECRET!) as { email: string }
+    await connect()
 
-    // Fetch dashboard data from database
-    const totalPatients = await db.collection("patients").countDocuments()
-    const todayPatients = await db.collection("patients").countDocuments({
-      createdAt: { $gte: new Date().setHours(0, 0, 0, 0) },
+    const doctor = await Doctor.findOne({ email: decoded.email })
+    if (!doctor) {
+      return NextResponse.json({ error: "Doctor not found" }, { status: 404 })
+    }
+
+    // Get today's date at midnight
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
+    // Filter today's appointments
+    const todayAppointments = doctor.appointments.filter((apt) => {
+      const aptDate = new Date(apt.time)
+      return aptDate >= today && aptDate < new Date(today.getTime() + 24 * 60 * 60 * 1000)
     })
-    const todayAppointments = await db
-      .collection("appointments")
-      .find({
-        date: { $gte: new Date().setHours(0, 0, 0, 0) },
-      })
-      .toArray()
 
-    res.status(200).json({
+    // Calculate total patients (assuming each appointment is a unique patient)
+    const totalPatients = doctor.appointments.length
+
+    // Calculate today's patients
+    const todayPatients = todayAppointments.length
+
+    return NextResponse.json({
+      doctor: {
+        username: doctor.username,
+        email: doctor.email,
+        isVerified: doctor.isVarified,
+        isAdmin: doctor.isAdmin,
+      },
       totalPatients,
       todayPatients,
       todayAppointments: {
         total: todayAppointments.length,
         appointments: todayAppointments.map((apt) => ({
-          patientName: apt.patientName,
-          type: apt.type,
           time: apt.time,
+          createdAt: apt.createdAt,
+          updatedAt: apt.updatedAt,
         })),
       },
     })
   } catch (error) {
     console.error("Error fetching dashboard data:", error)
-    res.status(401).json({ message: "Invalid token" })
+    return NextResponse.json({ error: "Invalid token" }, { status: 401 })
   }
 }
+

@@ -1,11 +1,12 @@
 "use client"
 
 import Link from "next/link"
-import type React from "react"
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import axios from "axios"
 import { toast } from "react-hot-toast"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -21,13 +22,27 @@ export default function LoginPage() {
     e.preventDefault()
     try {
       setLoading(true)
-      const response = await axios.post("/api/patient/login", user)
-      console.log("Login success", response.data)
+      const response = await fetch("/api/patient/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(user),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Login failed")
+      }
+
+      const data = await response.json()
+      console.log("Login success", data)
+      localStorage.setItem("patientToken", data.token)
       toast.success("Login successful!")
       router.push("/patient/profile")
     } catch (error: any) {
-      console.error("Login failed!", error.response?.data || error.message)
-      toast.error(error.response?.data?.error || "Login failed. Please try again.")
+      console.error("Login failed!", error.message)
+      toast.error(error.message || "Login failed. Please try again.")
     } finally {
       setLoading(false)
     }
@@ -39,53 +54,42 @@ export default function LoginPage() {
   }, [user])
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen py-2 bg-black text-white">
-      <h1 className="m-4 text-2xl font-bold">{loading ? "Processing..." : "Login"}</h1>
-      <hr className="w-1/4 mb-4" />
-      <form onSubmit={onLogin} className="w-full max-w-md">
-        <div className="mb-4">
-          <label htmlFor="email" className="block mb-2">
-            Email
-          </label>
-          <input
-            className="w-full p-2 border rounded-lg focus:outline-none focus:border-gray-900 text-black border-zinc-500"
-            id="email"
-            type="email"
-            value={user.email}
-            onChange={(e) => setUser({ ...user, email: e.target.value })}
-            placeholder="Email"
-            required
-          />
+    <div className="flex flex-col items-center justify-center min-h-screen py-2 bg-gray-100">
+      <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-md">
+        <h1 className="text-2xl font-bold text-center">{loading ? "Processing..." : "Patient Login"}</h1>
+        <form onSubmit={onLogin} className="space-y-4">
+          <div>
+            <Label htmlFor="email">Email</Label>
+            <Input
+              id="email"
+              type="email"
+              value={user.email}
+              onChange={(e) => setUser({ ...user, email: e.target.value })}
+              placeholder="Email"
+              required
+            />
+          </div>
+          <div>
+            <Label htmlFor="password">Password</Label>
+            <Input
+              id="password"
+              type="password"
+              value={user.password}
+              onChange={(e) => setUser({ ...user, password: e.target.value })}
+              placeholder="Password"
+              required
+            />
+          </div>
+          <Button type="submit" disabled={buttonDisabled || loading} className="w-full">
+            {loading ? "Logging in..." : buttonDisabled ? "Fill All Fields" : "Login"}
+          </Button>
+        </form>
+        <div className="text-center">
+          <Link href="/patient/signup" className="text-blue-600 hover:underline">
+            New user? Sign up here
+          </Link>
         </div>
-        <div className="mb-4">
-          <label htmlFor="password" className="block mb-2">
-            Password
-          </label>
-          <input
-            className="w-full p-2 border rounded-lg focus:outline-none focus:border-gray-900 text-black border-zinc-500"
-            id="password"
-            type="password"
-            value={user.password}
-            onChange={(e) => setUser({ ...user, password: e.target.value })}
-            placeholder="Password"
-            required
-          />
-        </div>
-        <button
-          type="submit"
-          disabled={buttonDisabled || loading}
-          className={`w-full p-2 border border-gray-300 rounded-lg mb-4 focus:outline-none ${
-            buttonDisabled || loading
-              ? "bg-gray-600 cursor-not-allowed"
-              : "bg-blue-600 hover:bg-blue-700 focus:border-gray-600"
-          }`}
-        >
-          {loading ? "Logging in..." : buttonDisabled ? "Fill All Fields" : "Login"}
-        </button>
-      </form>
-      <Link href="/signup" className="mt-4 text-blue-400 hover:underline">
-        New user? Sign up here
-      </Link>
+      </div>
     </div>
   )
 }

@@ -17,11 +17,21 @@ const doctorSchema = new mongoose.Schema(
       required: true,
     },
     appointments: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Appointment",
-      },
-    ],
+        {
+          time: {
+            type: Date,
+            required: true,
+          },
+          createdAt: {
+            type: Date,
+            default: Date.now,
+          },
+          updatedAt: {
+            type: Date,
+            default: Date.now,
+          }
+        }
+      ]
   },
   {
     timestamps: true,

@@ -1,114 +1,99 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
-import { Card } from "@/components/ui/card"
-import { Users, UserCheck, CalendarIcon } from "lucide-react"
-import { DoctorAppointments } from "./appointments"
-import { PatientSummary } from "./patient-summary"
-import axios from "axios"
+
+interface Appointment {
+  time: string
+  createdAt: string
+  updatedAt: string
+}
 
 interface DashboardData {
+  doctor: {
+    username: string
+    email: string
+    isVerified: boolean
+    isAdmin: boolean
+  }
   totalPatients: number
   todayPatients: number
   todayAppointments: {
     total: number
-    appointments: Array<{
-      patientName: string
-      type: string
-      time: string
-    }>
+    appointments: Appointment[]
   }
 }
 
 export function DoctorDashboard() {
-  const router = useRouter()
-  const [data, setData] = useState<DashboardData | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null)
 
   useEffect(() => {
-    async function fetchDashboardData() {
+    const fetchDashboardData = async () => {
       try {
-        const token = localStorage.getItem("doctorToken") || "";
- // Assuming you store the JWT token in localStorage after login
+        const token = localStorage.getItem("doctorToken") || ""
         if (!token) {
-          console.log("No token found, redirecting to login")
-          router.push("/doctor/login") // Redirect to login if no token is found
-          return
+          throw new Error("No token found")
         }
-        console.log("token generated")
-        const response = await axios.get("/api/doctor/profile", {
+
+        const response = await fetch("/api/doctor/profile", {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         })
 
-        setData(response.data)
-      } catch (error) {
-        console.log(error)
-        console.error("Failed to fetch dashboard data:", error)
-        if (axios.isAxiosError(error) && error.response?.status === 401) {
-          // Token is invalid or expired
-          localStorage.removeItem("token")
-          router.push("/doctor/login")
+        if (!response.ok) {
+          throw new Error("Failed to fetch dashboard data")
         }
-      } finally {
-        setLoading(false)
+
+        const data = await response.json()
+        setDashboardData(data)
+      } catch (error) {
+        console.error("Error fetching dashboard data:", error)
       }
     }
 
     fetchDashboardData()
-  }, [router])
+  }, [])
 
-  if (loading) {
+  if (!dashboardData) {
     return <div>Loading...</div>
   }
 
   return (
-    <div className="space-y-6">
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card className="p-6">
-          <div className="flex items-center">
-            <div className="p-2 bg-blue-50 rounded-lg">
-              <Users className="h-6 w-6 text-blue-600" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Total Patients</p>
-              <h3 className="text-2xl font-bold">{data?.totalPatients || 0}</h3>
-              <p className="text-xs text-gray-500">Till Today</p>
-            </div>
-          </div>
-        </Card>
-        <Card className="p-6">
-          <div className="flex items-center">
-            <div className="p-2 bg-blue-50 rounded-lg">
-              <UserCheck className="h-6 w-6 text-blue-600" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Today Patients</p>
-              <h3 className="text-2xl font-bold">{data?.todayPatients || 0}</h3>
-              <p className="text-xs text-gray-500">{new Date().toLocaleDateString()}</p>
-            </div>
-          </div>
-        </Card>
-        <Card className="p-6">
-          <div className="flex items-center">
-            <div className="p-2 bg-blue-50 rounded-lg">
-              <CalendarIcon className="h-6 w-6 text-blue-600" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Today Appointments</p>
-              <h3 className="text-2xl font-bold">{data?.todayAppointments.total || 0}</h3>
-              <p className="text-xs text-gray-500">{new Date().toLocaleDateString()}</p>
-            </div>
-          </div>
-        </Card>
+    <div className="p-6">
+      <h1 className="text-2xl font-bold mb-4">Welcome, Dr. {dashboardData.doctor.username}</h1>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-white p-4 rounded shadow">
+          <h2 className="text-lg font-semibold mb-2">Total Patients</h2>
+          <p className="text-3xl font-bold">{dashboardData.totalPatients}</p>
+        </div>
+        <div className="bg-white p-4 rounded shadow">
+          <h2 className="text-lg font-semibold mb-2">Today's Patients</h2>
+          <p className="text-3xl font-bold">{dashboardData.todayPatients}</p>
+        </div>
+        <div className="bg-white p-4 rounded shadow">
+          <h2 className="text-lg font-semibold mb-2">Today's Appointments</h2>
+          <p className="text-3xl font-bold">{dashboardData.todayAppointments.total}</p>
+        </div>
       </div>
-
-      <div className="grid gap-6 md:grid-cols-2">
-        <PatientSummary appointments={data?.todayAppointments.appointments} />
-        <DoctorAppointments appointments={data?.todayAppointments.appointments} />
+      <div className="mt-8">
+        <h2 className="text-xl font-semibold mb-4">Today's Appointments</h2>
+        {dashboardData.todayAppointments.appointments.length > 0 ? (
+          <ul className="bg-white rounded shadow divide-y">
+            {dashboardData.todayAppointments.appointments.map((appointment, index) => (
+              <li key={index} className="p-4">
+                <p className="font-semibold">Appointment Time: {new Date(appointment.time).toLocaleTimeString()}</p>
+                <p className="text-sm text-gray-600">Created: {new Date(appointment.createdAt).toLocaleString()}</p>
+                <p className="text-sm text-gray-600">
+                  Last Updated: {new Date(appointment.updatedAt).toLocaleString()}
+                </p>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p>No appointments scheduled for today.</p>
+        )}
       </div>
     </div>
   )
 }
+
